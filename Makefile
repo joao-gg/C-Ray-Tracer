@@ -22,7 +22,7 @@ SANFLAGS =
 LDFLAGS = 					\
 	-lm
 
-SRCS = ./src/lib/vec3.c ./src/main.c
+SRCS = ./src/lib/vec3.c ./src/lib/sphere.c ./src/main.c
 
 OBJS = $(SRCS:.c=.o)
 

@@ -6,8 +6,9 @@
 #include <stdbool.h>
 
 #include "lib/vec3.h"
+#include "lib/sphere.h"
 
-// algumas cores para você experimentar
+// definições de cores
 #define COL_RED         Vec3(1,      0,      0)
 #define COL_DARK_RED    Vec3(0.4,    0,      0)
 #define COL_GREEN       Vec3(0,      1,      0)
@@ -17,59 +18,25 @@
 #define COL_YELLOW_LAMP Vec3(1,      0.9,    0.7)
 #define COL_STELL       Vec3(0.4431, 0.4745, 0.4941)
 
+// propriedades de luz/material
 #define DIFFUSE_INTENSITY    0.7
 #define SPECULAR_INTENSITY   0.3
 #define SPECULAR_EXPONENT    50.0
 #define AMBIENT_INTENSITY    0.1
 #define REFLECTION_INTENSITY 0.50
 
-typedef struct {
-    Vec3_t pos, color;
-    float radius;
-    bool is_reflective;
-} Sphere_t;
-
-#define Sphere(pos, color, radius, is_reflective) \
-    (Sphere_t) { (pos), (color), (radius), (is_reflective) }
-
-static inline bool intersect_sphere(const Sphere_t sphere, const Vec3_t origin,
-                                    const Vec3_t direction, float *dist) {
-    Vec3_t origin_sphere_dist = vec3_sub(origin, sphere.pos);
-
-    float a = vec3_self_dot(direction);
-    float b = 2 * vec3_dot(direction, origin_sphere_dist);
-    float c = vec3_self_dot(origin_sphere_dist) - sphere.radius * sphere.radius;
-
-    float delta = b * b - 4 * a * c;
-
-    if (delta >= 0) {
-        float sqrt_delta = sqrtf(delta);
-        float denominator = 2.0 * a;
-
-        float t1 = (-b - sqrt_delta) / denominator;
-        float t2 = (-b + sqrt_delta) / denominator;
-
-        // ignorar interseções muito próximas
-        if (t1 > 0.1 || t2 > 0.1) {
-            // encontrar a menor distância de interseção
-            *dist = t1 < t2 ? t1 : t2;
-            return true;
-        }
-    }
-    return false;
-}
-
-typedef struct {
-    Sphere_t *lights, *spheres;
-    unsigned num_lights, num_spheres;
-} SceneObjects_t;
-
+// macro de inicialização de SceneObjects_t
 #define SceneObjects(lights_array, spheres_array)            \
     (SceneObjects_t) {                                       \
         (lights_array), (spheres_array),                     \
             (sizeof(lights_array) / sizeof(*lights_array)),  \
             (sizeof(spheres_array) / sizeof(*spheres_array)) \
     }
+
+typedef struct {
+    Sphere_t *lights, *spheres;
+    unsigned num_lights, num_spheres;
+} SceneObjects_t;
 
 typedef struct {
     unsigned width, height;
@@ -84,7 +51,36 @@ typedef struct {
     unsigned FOV, ray_depth;
 } RenderOpts_t;
 
-static inline void __checkerboard_col(Sphere_t *sphere, Vec3_t intersection,
+// funções de utilidade matemática
+static inline float degree_to_rad(float degrees) {
+    return degrees * 3.14159265358979323846 / 180.0;
+}
+
+static inline Vec3_t rotate_around_x(Vec3_t v, float theta) {
+    float rad       = degree_to_rad(theta);
+    float cos_theta = cosf(rad);
+    float sin_theta = sinf(rad);
+
+    return Vec3(
+        v.x * cos_theta - v.z * sin_theta, 
+        v.y, 
+        v.x * sin_theta + v.z * cos_theta
+    );
+}
+
+static inline Vec3_t rotate_around_y(Vec3_t v, float theta) {
+    float rad       = degree_to_rad(theta);
+    float cos_theta = cosf(rad);
+    float sin_theta = sinf(rad);
+
+    return Vec3(
+        v.x, 
+        v.y * cos_theta - v.z * sin_theta, 
+        v.y * sin_theta + v.z * cos_theta
+    );
+}
+
+static inline void col_checkerboard(Sphere_t *sphere, Vec3_t intersection,
                                          Vec3_t col1, Vec3_t col2) {
     int checkerboard = ((int)(intersection.x + 100) + (int)(intersection.z + 100)) & 1;
     sphere->color    = (checkerboard ? col1 : col2);
@@ -106,6 +102,7 @@ static inline Vec3_t trace(SceneOpts_t scene_opts, const Vec3_t origin,
         }
     }
 
+    // raio perdido (não intercepta nada)
     if (curr_sphere == -1) {
         return scene_opts.bg_color;
     }
@@ -122,9 +119,10 @@ static inline Vec3_t trace(SceneOpts_t scene_opts, const Vec3_t origin,
     Vec3_t color = vec3_scalar_mul(
         scene_opts.objects.spheres[curr_sphere].color, AMBIENT_INTENSITY);
 
+    // adicionar efeito checkerboard à esfera 0 (chão da cena)
     if (curr_sphere == 0) {
-        __checkerboard_col(&scene_opts.objects.spheres[curr_sphere],
-                           intersection_point, COL_WHITE, COL_BLACK);
+        col_checkerboard(&scene_opts.objects.spheres[curr_sphere],
+                         intersection_point, COL_WHITE, COL_BLACK);
     }
 
     for (unsigned curr_light = 0; curr_light < scene_opts.objects.num_lights; ++curr_light) {
@@ -165,26 +163,6 @@ static inline Vec3_t trace(SceneOpts_t scene_opts, const Vec3_t origin,
     return color;
 }
 
-static inline float degree_to_rad(float degrees) {
-    return degrees * 3.14159265358979323846 / 180.0;
-}
-
-static inline Vec3_t rotate_yaw(Vec3_t v, float yaw) {
-    float rad     = degree_to_rad(yaw);
-    float cos_yaw = cosf(rad);
-    float sin_yaw = sinf(rad);
-
-    return Vec3(v.x * cos_yaw - v.z * sin_yaw, v.y, v.x * sin_yaw + v.z * cos_yaw);
-}
-
-static inline Vec3_t rotate_pitch(Vec3_t v, float pitch) {
-    float rad       = degree_to_rad(pitch);
-    float cos_pitch = cosf(rad);
-    float sin_pitch = sinf(rad);
-
-    return Vec3(v.x, v.y * cos_pitch - v.z * sin_pitch, v.y * sin_pitch + v.z * cos_pitch);
-}
-
 void render_scene(FILE *fp, SceneOpts_t scene_opts, RenderOpts_t render_opts) {
     assert(scene_opts.objects.lights);
     assert(scene_opts.objects.spheres);
@@ -203,17 +181,17 @@ void render_scene(FILE *fp, SceneOpts_t scene_opts, RenderOpts_t render_opts) {
 
     for (unsigned y = 0; y < scene_opts.height; ++y) {
         for (unsigned x = 0; x < scene_opts.width; ++x) {
-            float screen_x = (2.0 * x / scene_opts.width - 1.0) * half_width;
-            float screen_y = -(2.0 * y / scene_opts.height - 1.0) * half_height;
+            float curr_x = (2.0 * x / scene_opts.width - 1.0) * half_width;
+            float curr_y = -(2.0 * y / scene_opts.height - 1.0) * half_height;
 
             Vec3_t ray = {
-                screen_x, 
-                screen_y,
+                curr_x, 
+                curr_y,
                 -1.0  // definir o componente z apontando para a câmera
             };
             
-            ray = rotate_yaw(ray, render_opts.yaw);
-            ray = rotate_pitch(ray, render_opts.pitch);
+            ray = rotate_around_x(ray, render_opts.yaw);
+            ray = rotate_around_y(ray, render_opts.pitch);
 
             Vec3_t direction = vec3_norm(ray);
 
@@ -239,7 +217,7 @@ int main(int argc, char const *argv[]) {
     };
 
     Sphere_t spheres[] = {
-        // chão da cena (com checkerboard)
+        // chão da cena (evite mexer muito nela)
         Sphere(Vec3(0, -1000, 0), COL_WHITE, 1000, true),
         
         // J

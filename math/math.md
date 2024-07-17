@@ -157,4 +157,6 @@ A derivação completa desta expressão pode ser encontrada em <a href="https://
 
 SCRATCHAPIXEL. **Ray-Sphere Intersection**. Scratchapixel 4.0. Disponível em: <a href="https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-sphere-intersection.html">link</a>. Acesso em: 27 jun. 2024.
 
-Dr. Trefor Bazett, **The Vector Equation of Lines | Multivariable Calculus**. YouTube. Disponível em: <a href="https://youtu.be/iOeGgZIfryg">link</a>. Acesso em: 27 jun. 2024.
+BAZETT, T. **The Vector Equation of Lines | Multivariable Calculus**. YouTube. Disponível em: <a href="https://youtu.be/iOeGgZIfryg">link</a>. Acesso em: 27 jun. 2024.
+
+THOMAS, D. **A Minimal Raytracer for You to Mess With and Learn From**. Medium. Disponível em: <a href="https://medium.com/swlh/a-minimal-raytracer-for-you-to-mess-with-and-learn-from-4502115519cc">link</a>. Acesso em: 17 jul. 2024. 
